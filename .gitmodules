@@ -1,0 +1,3 @@
+[submodule "pytorch-ts"]
+	path = pytorch-ts
+	url = https://github.com/zalandoresearch/pytorch-ts.git
