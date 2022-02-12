@@ -219,7 +219,28 @@ def get_features_and_targets(message_per_day, orderbook_per_day):
         trade_amounts, turnovers = get_trades_features(message_per_day[day], indices)
         features = get_features(books, trade_amounts, turnovers)
         targets = get_mid_price_target(books, 80)
+        assert len(targets) <= len(features)
+        features = features[: len(targets)]
         features_per_day[day] = features
         targets_per_day[day] = targets
 
     return features_per_day, targets_per_day
+
+
+def dump_features_and_targets(dump_path, features_per_day, targets_per_day):
+    for day in features_per_day:
+        features = features_per_day[day]
+        targets = targets_per_day[day]
+        np.save(dump_path + day + "_features.npy", features)
+        np.save(dump_path + day + "_targets.npy", targets)
+
+
+def get_mlp_features_and_targets(features, targets, history_len):
+    features = features[: len(targets)]
+    mlp_features = []
+    for i in range(len(features) - history_len + 1):
+        mlp_features.append(features[i : i + history_len].flatten())
+
+    targets = targets[history_len - 1 :]
+    assert len(targets) == len(mlp_features), (len(targets), len(mlp_features))
+    return np.array(mlp_features), targets
