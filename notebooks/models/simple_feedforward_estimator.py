@@ -16,6 +16,7 @@ from gluonts.transform import (
     ExpectedNumInstanceSampler,
     ValidationSplitSampler,
     TestSplitSampler,
+    AddObservedValuesIndicator,
 )
 
 from pts.model.utils import get_module_forward_input_names
@@ -119,9 +120,14 @@ class SimpleFeedForwardEstimator(PyTorchEstimator):
     # transformation that includes time features, age feature, observed values
     # indicator, etc.
     def create_transformation(self) -> Transformation:
-        return Chain([])
+        # OK
+        return AddObservedValuesIndicator(
+            target_field=FieldName.TARGET,
+            output_field=FieldName.OBSERVED_VALUES,
+        )
 
     def create_instance_splitter(self, mode: str):
+        # OK, check whether need create_training_data_loader with get_hybrid_forward_input_names
         assert mode in ["training", "validation", "test"]
         instance_sampler = {
             "training": self.train_sampler,
@@ -137,13 +143,17 @@ class SimpleFeedForwardEstimator(PyTorchEstimator):
             instance_sampler=instance_sampler,
             past_length=self.context_length,
             future_length=self.prediction_length,
-            time_series_fields=[],  # [FieldName.FEAT_DYNAMIC_REAL]
+            time_series_fields=[
+                FieldName.FEAT_DYNAMIC_REAL,
+                FieldName.OBSERVED_VALUES,
+            ],  # [FieldName.FEAT_DYNAMIC_REAL]
         )
 
     # defines the network, we get to see one batch to initialize it.
     # the network should return at least one tensor that is used as a loss to minimize in the training loop.
     # several tensors can be returned for instance for analysis, see DeepARTrainingNetwork for an example.
     def create_training_network(self, device: torch.device) -> SimpleFeedForwardTrainingNetwork:
+        # OK
         return SimpleFeedForwardTrainingNetwork(
             num_hidden_dimensions=self.num_hidden_dimensions,
             prediction_length=self.prediction_length,
@@ -161,6 +171,7 @@ class SimpleFeedForwardEstimator(PyTorchEstimator):
         trained_network: nn.Module,
         device: torch.device,
     ) -> Predictor:
+        # OK, check what get_module_forward_input_names does
         prediction_splitter = self.create_instance_splitter("test")
 
         prediction_network = SimpleFeedForwardPredictionNetwork(

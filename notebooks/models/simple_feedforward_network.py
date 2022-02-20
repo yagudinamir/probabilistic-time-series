@@ -80,18 +80,33 @@ class SimpleFeedForwardNetworkBase(nn.Module):
 
     def get_distr(self, past_target: torch.Tensor) -> Distribution:
         # (batch_size, seq_len, target_dim) and (batch_size, seq_len, target_dim)
-        scaled_target, target_scale = self.scaler(
-            past_target,
-            torch.ones_like(past_target),  # TODO: pass the actual observed here
-        )
+        # scaled_target, target_scale = self.scaler(
+        #     past_target,
+        #     torch.ones_like(past_target),  # TODO: pass the actual observed here
+        # )
+        scaled_target = past_target
 
         mlp_outputs = self.mlp(scaled_target)
         distr_args = self.distr_args_proj(mlp_outputs)
-        return self.distr_output.distribution(distr_args, scale=target_scale.unsqueeze(1))
+        return self.distr_output.distribution(distr_args)  # ,  scale=target_scale.unsqueeze(1)
 
 
 class SimpleFeedForwardTrainingNetwork(SimpleFeedForwardNetworkBase):
-    def forward(self, past_target: torch.Tensor, future_target: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        past_target: torch.Tensor,
+        future_target: torch.Tensor,
+        past_feat_dynamic_real: torch.Tensor,
+        future_feat_dynamic_real: torch.Tensor,
+        past_observed_values: torch.Tensor,
+        future_observed_values: torch.Tensor,
+    ) -> torch.Tensor:
+        # assert torch.all(past_observed_values == 1), (
+        #     past_observed_values,
+        #     past_feat_dynamic_real,
+        #     past_target,
+        #     past_observed_values.shape,
+        # )
         distr = self.get_distr(past_target)
 
         # (batch_size, prediction_length, target_dim)
