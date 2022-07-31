@@ -111,8 +111,11 @@ class SimpleFeedForwardTrainingNetwork(SimpleFeedForwardNetworkBase):
         # )
         B = past_feat_dynamic_real.shape[0]
         past_feat_dynamic_real = past_feat_dynamic_real.reshape(B, -1)
+#         print('past_feat_dynamic_real', past_feat_dynamic_real.shape)
         future_feat_dynamic_real = future_feat_dynamic_real.reshape(B, -1)
+#         print('future_feat_dynamic_real', future_feat_dynamic_real.shape)
         net_input = torch.cat((past_feat_dynamic_real, future_feat_dynamic_real), dim=-1)
+#         print('net_input.shape', net_input.shape)
         net_output = self.mlp(net_input)
         net_output = net_output.reshape(B, self.prediction_length, -1)
         distr_args = self.distr_args_proj(net_output)

@@ -8,6 +8,11 @@ from gluonts.core.component import validated
 from pts.model import weighted_average
 from pts.modules import RealNVP, MAF, FlowOutput, MeanScaler, NOPScaler
 
+def log(*args, verbose=False):
+    if verbose:
+        print(*args)
+    
+
 
 class TempFlowTrainingNetwork(nn.Module):
     @validated()
@@ -155,10 +160,17 @@ class TempFlowTrainingNetwork(nn.Module):
         )
 
         # (batch_size, sub_seq_len, input_dim)
-        inputs = torch.cat((input_lags, repeated_index_embeddings, time_feat), dim=-1)
+        log('time_feat.shape', time_feat.shape)
+        # URGENT: do not include lags & embeddings
+#         inputs = torch.cat((input_lags, repeated_index_embeddings, time_feat), dim=-1)
+        inputs = time_feat
+        
+        log('inputs.shape', inputs.shape)
 
         # unroll encoder
         outputs, state = self.rnn(inputs, begin_state)
+#         log('outputs.shape', outputs.shape)
+#         assert False
 
         # assert_shape(outputs, (-1, unroll_length, self.num_cells))
         # for s in state:
@@ -299,9 +311,11 @@ class TempFlowTrainingNetwork(nn.Module):
         past_target_cdf: torch.Tensor,
         past_observed_values: torch.Tensor,
         past_is_pad: torch.Tensor,
+        past_feat_dynamic_real: torch.Tensor,
         future_time_feat: torch.Tensor,
         future_target_cdf: torch.Tensor,
         future_observed_values: torch.Tensor,
+        future_feat_dynamic_real: torch.Tensor
     ) -> Tuple[torch.Tensor, ...]:
         """
         Computes the loss for training DeepVAR, all inputs tensors representing
@@ -343,20 +357,27 @@ class TempFlowTrainingNetwork(nn.Module):
             Distribution arguments (context + prediction_length,
             number_of_arguments)
         """
+        log('past_feat_dynamic_real.shape', past_feat_dynamic_real.shape)
+        log('future_feat_dynamic_real.shape', future_feat_dynamic_real.shape)
+        log('past_time_feat.shape', past_time_feat.shape)
+        log('future_time_feat.shape', future_time_feat.shape)
+        log()
 
         seq_len = self.context_length + self.prediction_length
 
         # unroll the decoder in "training mode", i.e. by providing future data
         # as well
+        # URGENT: replacing time_feat with feat_dynamic_real
         rnn_outputs, _, scale, _, _ = self.unroll_encoder(
-            past_time_feat=past_time_feat,
+            past_time_feat=past_feat_dynamic_real,
             past_target_cdf=past_target_cdf,
             past_observed_values=past_observed_values,
             past_is_pad=past_is_pad,
-            future_time_feat=future_time_feat,
+            future_time_feat=future_feat_dynamic_real,
             future_target_cdf=future_target_cdf,
             target_dimension_indicator=target_dimension_indicator,
         )
+        log('rnn_outputs.shape', rnn_outputs.shape)
 
         # put together target sequence
         # (batch_size, seq_len, target_dim)
@@ -364,6 +385,8 @@ class TempFlowTrainingNetwork(nn.Module):
             (past_target_cdf[:, -self.context_length :, ...], future_target_cdf),
             dim=1,
         )
+        
+        log('target.shape', target.shape)
 
         # assert_shape(target, (-1, seq_len, self.target_dim))
 
@@ -515,7 +538,9 @@ class TempFlowPredictionNetwork(TempFlowTrainingNetwork):
         past_target_cdf: torch.Tensor,
         past_observed_values: torch.Tensor,
         past_is_pad: torch.Tensor,
+        past_feat_dynamic_real: torch.Tensor,
         future_time_feat: torch.Tensor,
+        future_feat_dynamic_real: torch.Tensor
     ) -> torch.Tensor:
         """
         Predicts samples given the trained DeepVAR model.
@@ -546,14 +571,14 @@ class TempFlowPredictionNetwork(TempFlowTrainingNetwork):
             prediction_length, target_dim).
 
         """
-
         # mark padded data as unobserved
         # (batch_size, target_dim, seq_len)
         past_observed_values = torch.min(past_observed_values, 1 - past_is_pad.unsqueeze(-1))
-
+        
+        #URGENT replacing time_feat with feature_dynamic_real
         # unroll the decoder in "prediction mode", i.e. with past data only
         _, begin_states, scale, _, _ = self.unroll_encoder(
-            past_time_feat=past_time_feat,
+            past_time_feat=past_feat_dynamic_real,
             past_target_cdf=past_target_cdf,
             past_observed_values=past_observed_values,
             past_is_pad=past_is_pad,
@@ -565,7 +590,7 @@ class TempFlowPredictionNetwork(TempFlowTrainingNetwork):
         return self.sampling_decoder(
             past_target_cdf=past_target_cdf,
             target_dimension_indicator=target_dimension_indicator,
-            time_feat=future_time_feat,
+            time_feat=future_feat_dynamic_real,
             scale=scale,
             begin_states=begin_states,
         )

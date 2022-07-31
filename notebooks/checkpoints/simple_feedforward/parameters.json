@@ -1,0 +1,1 @@
+{"batch_size": 32, "forecast_generator": {"__kind__": "instance", "args": [], "class": "gluonts.model.forecast_generator.SampleForecastGenerator", "kwargs": {}}, "freq": "1H", "input_names": ["past_target", "past_feat_dynamic_real", "future_feat_dynamic_real", "past_observed_values"], "lead_time": 0, "prediction_length": 1}

@@ -34,7 +34,7 @@ from pts.feature import (
 from pts.model.utils import get_module_forward_input_names
 from pts.model import PyTorchEstimator
 
-from .tempflow_network import TempFlowTrainingNetwork, TempFlowPredictionNetwork
+from .tempflow_network import TempFlowTrainingNetwork, TempFlowPredictionNetwork, log
 
 
 class TempFlowEstimator(PyTorchEstimator):
@@ -92,12 +92,20 @@ class TempFlowEstimator(PyTorchEstimator):
         self.lags_seq = (
             lags_seq if lags_seq is not None else lags_for_fourier_time_features_from_frequency(freq_str=freq)
         )
+        log('lags_seq', self.lags_seq)
+        # URGENT: replacing lags_seg
+        self.lags_seq = [2]
+        
 
         self.time_features = (
             time_features if time_features is not None else fourier_time_features_from_frequency(self.freq)
         )
+        log('time_features.shape:', len(self.time_features))
 
         self.history_length = self.context_length + max(self.lags_seq)
+        log('context_length:', self.context_length)
+        log('history_length:', self.history_length)
+        log('prediction_length:', self.prediction_length)
         self.pick_incomplete = pick_incomplete
         self.scaling = scaling
 
@@ -169,6 +177,7 @@ class TempFlowEstimator(PyTorchEstimator):
             time_series_fields=[
                 FieldName.FEAT_TIME,
                 FieldName.OBSERVED_VALUES,
+                FieldName.FEAT_DYNAMIC_REAL
             ],
         ) + (
             RenameFields(
